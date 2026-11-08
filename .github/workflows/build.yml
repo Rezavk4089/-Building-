@@ -1,3 +1,4 @@
+
 name: Build APK
 
 on:
@@ -24,36 +25,47 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Extract Android project
+      - name: Extract projectok.zip
         shell: bash
         run: |
           set -e
-          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
-            ZIP=$(find . -maxdepth 2 -type f -iname '*.zip' | head -n 1)
-            if [ -z "$ZIP" ]; then
-              echo "ERROR: No Gradle project or ZIP file found."
-              exit 1
-            fi
-            mkdir -p extracted
-            unzip -o "$ZIP" -d extracted
-            PROJECT_DIR=$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) -printf '%h\n' | head -n 1)
-          else
-            PROJECT_DIR="."
+
+          ZIP="projectok.zip"
+
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: projectok.zip not found!"
+            exit 1
           fi
 
-          if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR/app" ]; then
-            echo "ERROR: Android app folder or Gradle settings not found."
+          mkdir -p extracted
+          unzip -o "$ZIP" -d extracted
+
+          PROJECT_DIR=$(find extracted -type f \
+            \( -name settings.gradle -o -name settings.gradle.kts \) \
+            -printf '%h\n' | head -n 1)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Gradle settings file not found!"
+            exit 1
+          fi
+
+          if [ ! -d "$PROJECT_DIR/app" ]; then
+            echo "ERROR: app folder not found!"
             exit 1
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+          echo "Project directory: $PROJECT_DIR"
+          ls -la "$PROJECT_DIR"
+
       - name: Build APK
-        run: gradle -p "$PROJECT_DIR" assembleDebug --no-daemon
+        run: |
+          gradle -p "$PROJECT_DIR" assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: projectok-debug-apk
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
